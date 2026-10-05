@@ -1,0 +1,22 @@
+{
+  "name": "Flow — Goals & Routines",
+  "short_name": "Flow",
+  "description": "Goals and the routines that carry them.",
+  "id": "./",
+  "start_url": "./#overview",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2efe7",
+  "theme_color": "#16191d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Routines", "url": "./#routines" },
+    { "name": "Goals", "url": "./#goals" },
+    { "name": "Review", "url": "./#review" }
+  ]
+}
