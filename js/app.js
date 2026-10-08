@@ -152,7 +152,7 @@ function routinesForEffort(effortId, { includePaused = false, includeNotes = fal
     if (!includePaused && !isActive(r)) return false;
     if (!includeNotes && isNote(r)) return false;
     const l = linkFor(r);
-    return (l.tier === 'drive' || l.tier === 'enable') && l.efforts.includes(effortId);
+    return (l.tier === 'drive' || l.tier === 'enable' || l.tier === 'upkeep') && l.efforts.includes(effortId);
   });
 }
 
@@ -340,7 +340,7 @@ function stat(value, label, extra = '') {
 function route() {
   const h = location.hash.replace(/^#/, '') || 'overview';
   const [view, arg] = h.split('/');
-  return { view: ['overview', 'goals', 'routines', 'area', 'review'].includes(view) ? view : 'overview', arg };
+  return { view: ['overview', 'goals', 'routines', 'area', 'review', 'sync'].includes(view) ? view : 'overview', arg };
 }
 
 function render() {
@@ -516,7 +516,7 @@ function sankeyModel() {
     const { tier, efforts } = linkFor(r);
     const l = 'l:' + areaOfRoutine(r), t = 't:' + tier;
     add(l, t, 1, r.id);
-    if (tier === 'upkeep') return add(t, 'x:upkeep', 1, r.id);
+    if (tier === 'upkeep' && !efforts.length) return add(t, 'x:upkeep', 1, r.id);
     if (tier === 'unsorted') return add(t, 'x:unsorted', 1, r.id);
     if (!efforts.length) return add(t, 'x:nogoal', 1, r.id);
     const w = 1 / efforts.length;
