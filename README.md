@@ -4,6 +4,6 @@ One hub for goals and the routines that carry them. Every routine gets a role â€
 
 Static site, no build step. Reads routines, goals, dreams and reviews live from the Routines and Goals Sheets' Apps Scripts (falls back to `js/data.js`). Refresh the snapshot with `python3 tools/build_data.py`.
 
-Installable: open the site in Chrome and use the install button in the address bar (manifest + service worker included).
+Install as a Chrome app: open https://randymcfarland1227-wq.github.io/flow-hub/ in a regular Chrome window and click **Install Flow** when it appears, then confirm Chrome's installation dialog. You can also use Chrome's install icon in the address bar or its **Cast, save, and share â†’ Install page as app** menu. The button stays hidden when already running as an app or when Chrome hasn't offered installation. Flow opens in its own window and supports offline use after the first online visit; live Sheet data still requires a connection.
 
 TickTick completion (`js/activity.js`) is a snapshot: refresh with `python3 tools/build_activity.py` after re-pulling `tools/ticktick_raw/`.

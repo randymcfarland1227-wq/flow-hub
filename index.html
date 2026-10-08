@@ -38,6 +38,7 @@
     </nav>
 
     <div class="topbar-right">
+      <button type="button" class="install-btn" id="installBtn" hidden>Install Flow</button>
       <a class="review-chip" id="reviewChip" href="#review"></a>
       <span class="sync" id="syncState" title="Loading…"><i></i></span>
       <button class="icon-btn" id="themeBtn" aria-label="Toggle light / dark">
@@ -67,8 +68,6 @@
 <script src="js/data.js?v=3c"></script>
 <script src="js/activity.js?v=3c"></script>
 <script src="js/app.js?v=3c"></script>
-<script>
-  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
-</script>
+<script src="js/install.js?v=1"></script>
 </body>
 </html>

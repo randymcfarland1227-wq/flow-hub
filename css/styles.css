@@ -159,6 +159,9 @@ svg { display: block; }
 .mega-text small { color: var(--ink-3); font-size: 0.78rem; }
 
 .topbar-right { display: flex; align-items: center; gap: 10px; }
+.install-btn { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 8px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.install-btn:hover { background: var(--surface-2); }
+.install-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .review-chip {
   display: flex; flex-direction: column; line-height: 1.2; text-decoration: none; padding: 6px 12px; border-radius: 10px;
   border: 1px solid var(--line); font-size: 0.74rem; transition: border-color var(--dur-fast) var(--ease-out);
