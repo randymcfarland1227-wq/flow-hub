@@ -960,6 +960,7 @@ function viewReview() {
       <div class="mh-stat ring-stat"><div class="progress-ring" id="reviewRing"></div><span>reviewed this pass</span></div>
     </div>`,
   })}
+  <div class="pills review-sync-link"><a class="btn" href="#sync">TickTick sync ⇄</a><span class="muted">Compare Flow with TickTick, edit the intended version, export the plan for Life Hub to write back.</span></div>
   <div class="page">
     <div id="reviewForm">${body}</div>
     <div class="save-bar">
