@@ -2,7 +2,7 @@
   "name": "Flow — Goals & Routines",
   "short_name": "Flow",
   "description": "Goals and the routines that carry them.",
-  "id": "./",
+  "id": "/flow-hub/",
   "start_url": "./#overview",
   "scope": "./",
   "display": "standalone",
