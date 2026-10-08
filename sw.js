@@ -3,8 +3,8 @@
 // Sheet reads (Apps Script) are never cached here; the app already falls back
 // to its built-in snapshot when they fail.
 const CACHE_PREFIX = `flow-${self.registration.scope}-`;
-const CACHE = `${CACHE_PREFIX}v4`;
-const SHELL = ['./', './index.html', './css/styles.css', './js/config.js', './js/data.js', './js/activity.js', './js/app.js', './js/install.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/icon.svg', './icons/apple-touch-icon.png'];
+const CACHE = `${CACHE_PREFIX}v5`;
+const SHELL = ['./js/music-source-catalog.js', './js/flow-map.js', './js/integration.js', './data/flow-map.json', './', './index.html', './css/styles.css', './js/config.js', './js/data.js', './js/activity.js', './js/app.js', './js/install.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/icon.svg', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
