@@ -159,9 +159,6 @@ svg { display: block; }
 .mega-text small { color: var(--ink-3); font-size: 0.78rem; }
 
 .topbar-right { display: flex; align-items: center; gap: 10px; }
-.install-btn { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 8px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
-.install-btn:hover { background: var(--surface-2); }
-.install-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .review-chip {
   display: flex; flex-direction: column; line-height: 1.2; text-decoration: none; padding: 6px 12px; border-radius: 10px;
   border: 1px solid var(--line); font-size: 0.74rem; transition: border-color var(--dur-fast) var(--ease-out);
@@ -725,5 +722,3 @@ svg.focus .sk-node.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-/* Additive integration review, using Flow's existing typography and surfaces. */
-:root{--a-upkeep:#8b9b7b}.flow-sync-list{display:grid;gap:10px;margin-top:24px}.flow-sync-row{padding:16px;border:1px solid var(--line);border-radius:12px}.flow-sync-row summary{cursor:pointer;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.flow-sync-row summary span{font-size:.8rem;opacity:.7}.flow-instructions{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6;padding:16px;background:var(--bg)}.flow-bucket-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}#flowDefinition{display:grid;gap:16px}#flowDefinition label{display:grid;gap:8px}#flowDefinition input,#flowDefinition select,#flowDefinition textarea{width:100%;padding:12px;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:8px}

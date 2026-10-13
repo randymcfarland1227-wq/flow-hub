@@ -152,14 +152,18 @@ function routinesForEffort(effortId, { includePaused = false, includeNotes = fal
     if (!includePaused && !isActive(r)) return false;
     if (!includeNotes && isNote(r)) return false;
     const l = linkFor(r);
-    return (l.tier === 'drive' || l.tier === 'enable' || l.tier === 'upkeep') && l.efforts.includes(effortId);
+    return (l.tier === 'drive' || l.tier === 'enable') && l.efforts.includes(effortId);
   });
 }
 
 // ---------------------------------------------------------------------
 // Activity (TickTick)
 // ---------------------------------------------------------------------
-const ACT = (typeof ACTIVITY !== 'undefined' && ACTIVITY) || { asOf: null, windowDays: 30, routines: {} };
+// Starts as the bundled snapshot; replaced by the cached or live TickTick read (see loadTickTick).
+let ACT = (typeof ACTIVITY !== 'undefined' && ACTIVITY) || { asOf: null, windowDays: 30, lookbackDays: 90, routines: {} };
+const tt = { source: 'snapshot', at: null, feed: null, open: null, error: null };
+// "Last done" text: a real date, or an honest "not in 90 days" — never a false "never".
+const lastText = s => s ? ago(s) : `not in ${ACT.lookbackDays || 90} days`;
 const actOf = r => ACT.routines[r.id] || null;
 function rateOf(a) {
   if (!a || !a.expected) return null;
@@ -180,7 +184,7 @@ function actLine(r) {
   if (!a) return `<span class="act muted">No TickTick history</span>`;
   const parts = [];
   if (a.overdueSince) parts.push(`<span class="act overdue">Overdue since ${fmtDay(a.overdueSince)}</span>`);
-  parts.push(`<span class="act">Last ${esc(ago(a.last))}</span>`);
+  parts.push(`<span class="act">Last ${esc(lastText(a.last))}</span>`);
   if (a.expected) parts.push(`<span class="act">${a.done}/${a.expected} ${a.kind === 'habit' ? 'days' : 'times'}</span>`);
   return parts.join('');
 }
@@ -297,9 +301,74 @@ async function loadLive() {
   const el = $('syncState');
   el.className = 'sync ' + (failed === 0 ? 'ok' : failed === jobs.length ? 'off' : 'partial');
   el.title = (failed === 0 ? 'Live from both Sheets' : failed === jobs.length ? 'Sheets unreachable — showing the saved snapshot' : 'Some Sheet reads failed')
-    + (ACT.asOf ? ` · TickTick activity as of ${fmtDay(ACT.asOf)}` : '');
+    + ` · ${ttLabel()}`;
+  rebuildActivity();
   render();
 }
+
+// ---------------------------------------------------------------------
+// TickTick, live — read through Life Hub's Worker, which holds the TickTick
+// token. The Worker's private feeds want Life Hub's backup key; Flow lives on
+// the same origin, so it reads the key Life Hub already saved in this browser.
+// ---------------------------------------------------------------------
+const TT_CACHE = 'flowHub.ticktickCache';
+const TT_KEY = 'flowHub.syncKey';
+const TT_REFRESH_MS = 5 * 60 * 1000;
+
+function syncKey() {
+  try { const k = (JSON.parse(localStorage.getItem('lifehub-sync')) || {}).key; if (k) return k; } catch {}
+  return localGet(TT_KEY, '');
+}
+function ttLabel() {
+  const when = tt.at ? new Date(tt.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
+  if (tt.source === 'live') return `TickTick live · updated ${when}`;
+  if (tt.source === 'cache') return `TickTick as of ${when} · refreshing`;
+  if (tt.error === 'no_key') return `TickTick snapshot (${ACT.asOf ? fmtDay(ACT.asOf) : '—'}) · open Life Hub once in this browser to go live`;
+  if (tt.error) return `TickTick snapshot (${ACT.asOf ? fmtDay(ACT.asOf) : '—'}) · live read failed: ${tt.error}`;
+  return `TickTick snapshot · ${ACT.asOf ? fmtDay(ACT.asOf) : '—'}`;
+}
+function rebuildActivity() {
+  if (!tt.feed || typeof FlowTickTick === 'undefined') return;
+  const { unmatched, ...a } = FlowTickTick.buildActivity(tt.feed, tt.open, state.routines, today());
+  ACT = a;
+}
+async function ttGet(path, key) {
+  const res = await fetch(`${LIFEHUB_API}${path}`, { headers: { 'X-Sync-Key': key } });
+  const body = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new Error('wrong_key');
+  if (!res.ok || body.ok === false && !body.tasks) throw new Error(body.error || `http_${res.status}`);
+  return body;
+}
+async function loadTickTick({ quiet = false } = {}) {
+  const key = syncKey();
+  if (!key) { tt.error = 'no_key'; if (!quiet) render(); return; }
+  try {
+    // TickTick returns at most 200 completed tasks per call, so read the lookback in 30-day slices.
+    const t = today(), slices = [];
+    for (let end = 0; end < (FlowTickTick.LOOKBACK_DAYS); end += 30) {
+      const to = FlowTickTick.addDays(t, -end), from = FlowTickTick.addDays(t, -Math.min(end + 29, FlowTickTick.LOOKBACK_DAYS - 1));
+      const start = parseDay(from).toISOString(), stop = new Date(parseDay(to).getTime() + 86399999).toISOString();
+      slices.push(ttGet(`/api/ticktick/done?from=${from.replace(/-/g, '')}&to=${to.replace(/-/g, '')}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(stop)}`, key));
+    }
+    const [parts, open] = await Promise.all([Promise.all(slices), ttGet('/api/ticktick/open', key).catch(() => null)]);
+    const feed = { tasks: [], habits: [], skipped: [], schedule: parts[0].schedule || [] };
+    parts.forEach(p => { feed.tasks.push(...(p.tasks || [])); feed.habits.push(...(p.habits || [])); feed.skipped.push(...(p.skipped || [])); });
+    Object.assign(tt, { source: 'live', at: Date.now(), feed, open, error: null });
+    try { localStorage.setItem(TT_CACHE, JSON.stringify({ at: tt.at, feed, open })); } catch {}
+    rebuildActivity();
+  } catch (e) {
+    tt.error = e.message === 'wrong_key' ? 'Life Hub key not accepted' : 'Worker unreachable';
+  }
+  render();
+}
+// Paint from the last live read straight away, then refresh in the background.
+(function useCachedTickTick() {
+  const c = localGet(TT_CACHE, null);
+  if (c && c.feed) Object.assign(tt, { source: 'cache', at: c.at, feed: c.feed, open: c.open });
+})();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (!tt.at || Date.now() - tt.at > TT_REFRESH_MS)) loadTickTick({ quiet: true });
+});
 
 // ---------------------------------------------------------------------
 // Shared markup
@@ -340,7 +409,7 @@ function stat(value, label, extra = '') {
 function route() {
   const h = location.hash.replace(/^#/, '') || 'overview';
   const [view, arg] = h.split('/');
-  return { view: ['overview', 'goals', 'routines', 'area', 'review', 'sync'].includes(view) ? view : 'overview', arg };
+  return { view: ['overview', 'goals', 'routines', 'area', 'review'].includes(view) ? view : 'overview', arg };
 }
 
 function render() {
@@ -516,7 +585,7 @@ function sankeyModel() {
     const { tier, efforts } = linkFor(r);
     const l = 'l:' + areaOfRoutine(r), t = 't:' + tier;
     add(l, t, 1, r.id);
-    if (tier === 'upkeep' && !efforts.length) return add(t, 'x:upkeep', 1, r.id);
+    if (tier === 'upkeep') return add(t, 'x:upkeep', 1, r.id);
     if (tier === 'unsorted') return add(t, 'x:unsorted', 1, r.id);
     if (!efforts.length) return add(t, 'x:nogoal', 1, r.id);
     const w = 1 / efforts.length;
@@ -658,7 +727,7 @@ function broadGoalSection(g, latestGoal) {
       <div class="broad-stats">
         <div>${pulseTag(p)}${meter(p.rate)}</div>
         <span>${plural(carried.length, 'routine')} carrying it</span>
-        <span>Last activity ${esc(ago(last))}</span>
+        <span>Last activity ${esc(lastText(last))}</span>
         <span class="broad-areas">${areas.map(areaBadge).join('')}</span>
       </div>
     </div>
@@ -784,7 +853,7 @@ function weekBoard() {
     const rs = other.filter(r => sched.get(r.id).cadence === k);
     return rs.length ? `<div class="lo-group"><span class="lo-k">${label}</span>${rs.map(r => {
       const a = actOf(r);
-      return `<button class="lo-item" data-edit="${esc(r.id)}" style="--ac: var(--l-${areaOfRoutine(r)})"><i class="dot"></i><span>${esc(r.focus)}</span><small>${esc(sched.get(r.id).label)}</small>${a && a.overdueSince ? `<em class="overdue">overdue</em>` : a && a.nextDue ? `<em>next ${fmtDay(a.nextDue)}</em>` : a && a.last ? `<em>last ${esc(ago(a.last))}</em>` : ''}</button>`;
+      return `<button class="lo-item" data-edit="${esc(r.id)}" style="--ac: var(--l-${areaOfRoutine(r)})"><i class="dot"></i><span>${esc(r.focus)}</span><small>${esc(sched.get(r.id).label)}</small>${a && a.overdueSince ? `<em class="overdue">overdue</em>` : a && a.nextDue ? `<em>next ${fmtDay(a.nextDue)}</em>` : a ? `<em>last ${esc(lastText(a.last))}</em>` : ''}</button>`;
     }).join('')}</div>` : '';
   }).join('');
 
@@ -793,7 +862,7 @@ function weekBoard() {
       <span><i class="lg st-done"></i>Done</span><span><i class="lg st-skip"></i>Skipped</span>
       <span><i class="lg st-missed"></i>Habit not logged</span><span><i class="lg st-missed-task"></i>Task not done</span>
       <span><i class="lg st-future"></i>Coming up</span>
-      ${ACT.asOf ? `<span class="muted">TickTick as of ${fmtDay(ACT.asOf)}</span>` : ''}
+      <span class="muted">${esc(ttLabel())}</span>
     </div>
     ${daily.length ? `<section class="board-block"><div class="board-head"><h3>Every day &amp; most days</h3><span>${plural(daily.length, 'routine')} · this week, Mon–Sun</span></div><div class="daily">${dailyRows}</div></section>` : ''}
     <section class="board-block"><div class="board-head"><h3>This week</h3><span>${plural(weekly.length, 'routine')} on set days</span></div>
@@ -960,7 +1029,6 @@ function viewReview() {
       <div class="mh-stat ring-stat"><div class="progress-ring" id="reviewRing"></div><span>reviewed this pass</span></div>
     </div>`,
   })}
-  <div class="pills review-sync-link"><a class="btn" href="#sync">TickTick sync ⇄</a><span class="muted">Compare Flow with TickTick, edit the intended version, export the plan for Life Hub to write back.</span></div>
   <div class="page">
     <div id="reviewForm">${body}</div>
     <div class="save-bar">
@@ -1089,7 +1157,7 @@ function openRoutineDrawer(id) {
       <h3>TickTick · last ${ACT.windowDays} days</h3>
       ${a ? `<div class="dr-activity">${strip(r)}<div class="dr-act-stats">
           <div><b>${a.expected ? Math.round(rateOf(a) * 100) + '%' : '—'}</b><span>${a.expected ? `${a.done} of ${a.expected} ${a.kind === 'habit' ? 'scheduled days' : 'expected'}` : 'no schedule to compare'}</span></div>
-          <div><b>${esc(ago(a.last))}</b><span>last done${a.last ? ` · ${fmtDay(a.last)}` : ''}</span></div>
+          <div><b>${esc(lastText(a.last))}</b><span>last done${a.last ? ` · ${fmtDay(a.last)}` : ''}</span></div>
           ${a.overdueSince ? `<div class="overdue"><b>Overdue</b><span>since ${fmtDay(a.overdueSince)}</span></div>` : a.nextDue ? `<div><b>${fmtDay(a.nextDue)}</b><span>next due</span></div>` : a.skipped ? `<div><b>${a.skipped.length}</b><span>marked skipped</span></div>` : ''}
         </div></div>` : `<p class="dr-note">No TickTick history matched this routine by name.</p>`}
     </div>
@@ -1230,6 +1298,8 @@ function wire(view) {
 let resizeTimer;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (route().view === 'overview') renderSankey(); }, 140); });
 
+rebuildActivity();
 render();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (route().view === 'overview') renderSankey(); });
 loadLive();
+loadTickTick();
